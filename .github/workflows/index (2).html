@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misi Kelas 6 - Game Koding Labirin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0f9ff;
+            background-image: radial-gradient(#bae6fd 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .maze-grid {
+            display: grid;
+            gap: 2px;
+            background-color: #0ea5e9;
+            padding: 4px;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.3);
+        }
+
+        .cell {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #f8fafc;
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .cell.wall {
+            background-color: #475569;
+            background-image: linear-gradient(45deg, #334155 25%, transparent 25%, transparent 75%, #334155 75%, #334155),
+                              linear-gradient(45deg, #334155 25%, transparent 25%, transparent 75%, #334155 75%, #334155);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .cell.start { background-color: #dbeafe; }
+        .cell.goal { background-color: #fef08a; }
+        .cell.path-trace { background-color: #bbf7d0; } /* Jejak jalan */
+
+        /* Animasi karakter */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15%); }
+        }
+        .player-anim {
+            animation: bounce 0.5s infinite;
+            filter: drop-shadow(0 4px 3px rgba(0,0,0,0.2));
+            z-index: 10;
+        }
+
+        .command-item {
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Modal */
+        #modalOverlay {
+            backdrop-filter: blur(4px);
+        }
+        
+        .code-list-container {
+            min-height: 150px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Scrollbar custom */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col items-center py-6 px-4">
+
+    <!-- Header -->
+    <header class="text-center mb-6">
+        <h1 class="text-4xl font-extrabold text-sky-600 mb-2 drop-shadow-sm">🚀 Misi Kelas 6</h1>
+        <p class="text-slate-600 font-semibold text-lg">Game Koding Labirin - Level <span id="levelDisplay" class="text-sky-500 font-bold">1</span>/10</p>
+    </header>
+
+    <!-- Main Game Container -->
+    <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white p-6 rounded-2xl shadow-xl border border-sky-100">
+        
+        <!-- Left: Game Board -->
+        <div class="lg:col-span-7 flex flex-col items-center justify-center bg-slate-50 p-4 rounded-xl border-2 border-dashed border-slate-200">
+            <div id="gameBoard" class="maze-grid w-full max-w-[450px]">
+                <!-- Grid will be generated here -->
+            </div>
+            <div class="mt-4 text-center text-sm text-slate-500">
+                Bantu Astronot 🚀 mencapai Bintang 🌟
+            </div>
+        </div>
+
+        <!-- Right: Coding Panel -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            
+            <!-- Perintah Tersedia -->
+            <div class="bg-sky-50 p-4 rounded-xl border border-sky-100 shadow-sm">
+                <h2 class="font-bold text-sky-800 mb-3 flex items-center gap-2">
+                    <span>🛠️</span> Blok Perintah
+                </h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="addCommand('A')" class="bg-white hover:bg-sky-100 text-sky-700 font-bold py-2 px-4 rounded-lg shadow-sm border border-sky-200 transition-colors active:scale-95 flex justify-center items-center gap-2">
+                        ⬆️ A (Atas)
+                    </button>
+                    <button onclick="addCommand('B')" class="bg-white hover:bg-sky-100 text-sky-700 font-bold py-2 px-4 rounded-lg shadow-sm border border-sky-200 transition-colors active:scale-95 flex justify-center items-center gap-2">
+                        ⬇️ B (Bawah)
+                    </button>
+                    <button onclick="addCommand('R')" class="bg-white hover:bg-sky-100 text-sky-700 font-bold py-2 px-4 rounded-lg shadow-sm border border-sky-200 transition-colors active:scale-95 flex justify-center items-center gap-2">
+                        ⬅️ R (Kiri)
+                    </button>
+                    <button onclick="addCommand('L')" class="bg-white hover:bg-sky-100 text-sky-700 font-bold py-2 px-4 rounded-lg shadow-sm border border-sky-200 transition-colors active:scale-95 flex justify-center items-center gap-2">
+                        ➡️ L (Kanan)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Program Area -->
+            <div class="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-slate-700 flex items-center gap-2">
+                        <span>📜</span> Susunan Kodemu
+                    </h2>
+                    <button onclick="clearCommands()" class="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                        🗑️ Hapus Semua
+                    </button>
+                </div>
+                
+                <div id="commandList" class="code-list-container flex-1 bg-white border border-slate-200 rounded-lg p-2 flex flex-col gap-1">
+                    <!-- Commands will be added here -->
+                    <div id="emptyProgramMsg" class="text-center text-slate-400 text-sm py-4 italic">
+                        Belum ada perintah. Klik tombol di atas untuk menyusun program!
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    <button onclick="resetLevel()" id="btnReset" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all shadow-sm active:scale-95">
+                        🔄 Ulangi Posisi
+                    </button>
+                    <button onclick="runCode()" id="btnRun" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95 shadow-emerald-500/30">
+                        ▶️ Jalankan Kode
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Message -->
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 transition-opacity opacity-0">
+        <div id="modalContent" class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform text-center relative overflow-hidden">
+            <div id="modalIcon" class="text-6xl mb-4">🏆</div>
+            <h3 id="modalTitle" class="text-2xl font-bold text-slate-800 mb-2">Level Selesai!</h3>
+            <p id="modalDesc" class="text-slate-600 mb-6">Hebat, programmu berhasil mencapai tujuan.</p>
+            <button id="modalBtn" onclick="closeModalAndNext()" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95 shadow-sky-500/30">
+                Lanjut Level Berikutnya
+            </button>
+            
+            <!-- Confetti Decor -->
+            <div id="modalDecor" class="absolute -top-10 -left-10 w-24 h-24 bg-sky-200 rounded-full blur-2xl opacity-50 z-[-1]"></div>
+            <div id="modalDecor2" class="absolute -bottom-10 -right-10 w-24 h-24 bg-emerald-200 rounded-full blur-2xl opacity-50 z-[-1]"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME DATA: MAP 10 LEVEL ---
+        // 0: Path, 1: Wall, 'S': Start, 'G': Goal
+        const levels = [
+            // Level 1: Lurus 3 langkah
+            [
+                ['S', 0, 0, 'G']
+            ],
+            // Level 2: Belok sekali
+            [
+                ['S', 0, 0],
+                [ 1,  1, 0],
+                [ 1,  1, 'G']
+            ],
+            // Level 3: Rintangan tengah
+            [
+                ['S', 0, 1, 0],
+                [ 1,  0, 1, 0],
+                [ 1,  0, 0, 'G']
+            ],
+            // Level 4: Tangga
+            [
+                ['S', 1, 1, 1, 1],
+                [ 0,  0, 1, 1, 1],
+                [ 1,  0,  0, 1, 1],
+                [ 1,  1,  0,  0, 'G']
+            ],
+            // Level 5: U-Turn
+            [
+                ['S', 0, 0, 0],
+                [ 1,  1, 1, 0],
+                ['G', 0, 0, 0]
+            ],
+            // Level 6: Labirin Sederhana (5x5)
+            [
+                ['S', 1, 'G', 0, 0],
+                [ 0,  1,  0,  1, 0],
+                [ 0,  0,  0,  1, 0],
+                [ 1,  1,  1,  1, 0],
+                [ 0,  0,  0,  0, 0]
+            ],
+            // Level 7: Berkelok
+            [
+                ['S', 0, 1, 0, 'G'],
+                [ 1,  0, 1, 0,  1],
+                [ 1,  0, 0, 0,  1],
+                [ 1,  1, 1, 0,  0]
+            ],
+            // Level 8: Jebakan (6x6)
+            [
+                ['S', 0, 0, 1, 1, 1],
+                [ 1,  1, 0, 1, 'G', 0],
+                [ 1,  0, 0, 1,  0,  1],
+                [ 1,  0, 1, 1,  0,  1],
+                [ 0,  0, 0, 0,  0,  1],
+                [ 1,  1, 1, 1,  1,  1]
+            ],
+            // Level 9: Spiral
+            [
+                ['S', 0, 0, 0, 0],
+                [ 1,  1, 1, 1, 0],
+                [ 0,  0, 0, 1, 0],
+                [ 0, 'G', 0, 1, 0],
+                [ 0,  1, 1, 1, 0],
+                [ 0,  0,  0, 0, 0]
+            ],
+            // Level 10: Ujian Akhir (6x6)
+            [
+                ['S', 1, 0, 0, 0, 'G'],
+                [ 0,  1, 0, 1, 1, 0],
+                [ 0,  0, 0, 1, 0, 0],
+                [ 1,  1, 0, 1, 0, 1],
+                [ 0,  0, 0, 0, 0, 1],
+                [ 0,  1, 1, 1, 1, 1]
+            ]
+        ];
+
+        // --- GAME STATE ---
+        let currentLevelIndex = 0; // 0 sampai 9
+        let currentMap = [];
+        let commands = [];
+        let playerPos = { r: 0, c: 0 };
+        let startPos = { r: 0, c: 0 };
+        let isRunning = false;
+
+        const cmdIconMap = {
+            'A': '⬆️ A (Atas)',
+            'B': '⬇️ B (Bawah)',
+            'R': '⬅️ R (Kiri)',
+            'L': '➡️ L (Kanan)'
+        };
+
+        const boardEl = document.getElementById('gameBoard');
+        const cmdListEl = document.getElementById('commandList');
+        const emptyMsgEl = document.getElementById('emptyProgramMsg');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const btnRun = document.getElementById('btnRun');
+
+        // --- INITIALIZATION ---
+        function initGame() {
+            loadLevel(currentLevelIndex);
+        }
+
+        function loadLevel(index) {
+            if (index >= levels.length) {
+                showModal("🎉", "TAMAT!", "Luar biasa! Kamu telah menyelesaikan semua misi Kelas 6 dengan sempurna. Kamu adalah programmer handal!", "Main Lagi", () => {
+                    currentLevelIndex = 0;
+                    initGame();
+                });
+                return;
+            }
+
+            currentLevelIndex = index;
+            currentMap = JSON.parse(JSON.stringify(levels[index])); // Deep copy
+            commands = [];
+            levelDisplay.innerText = currentLevelIndex + 1;
+            
+            // Find start position
+            for(let r = 0; r < currentMap.length; r++) {
+                for(let c = 0; c < currentMap[r].length; c++) {
+                    if (currentMap[r][c] === 'S') {
+                        startPos = { r, c };
+                        playerPos = { r, c };
+                    }
+                }
+            }
+            
+            updateCommandUI();
+            renderBoard();
+        }
+
+        // --- RENDERING ---
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const rows = currentMap.length;
+            const cols = currentMap[0].length;
+            
+            boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            
+            for(let r = 0; r < rows; r++) {
+                for(let c = 0; c < cols; c++) {
+                    const cellType = currentMap[r][c];
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    cellDiv.id = `cell-${r}-${c}`;
+                    
+                    if (cellType === 1) cellDiv.classList.add('wall');
+                    else if (cellType === 'S') cellDiv.classList.add('start');
+                    else if (cellType === 'G') {
+                        cellDiv.classList.add('goal');
+                        cellDiv.innerHTML = '🌟';
+                    }
+
+                    // Render player
+                    if (playerPos.r === r && playerPos.c === c) {
+                        cellDiv.innerHTML = `<span class="player-anim text-3xl md:text-4xl leading-none">🚀</span>`;
+                    }
+
+                    boardEl.appendChild(cellDiv);
+                }
+            }
+        }
+
+        // --- COMMAND MANAGEMENT ---
+        function addCommand(cmd) {
+            if (isRunning) return;
+            commands.push(cmd);
+            updateCommandUI();
+            // Scroll to bottom
+            cmdListEl.scrollTop = cmdListEl.scrollHeight;
+        }
+
+        function removeCommand(index) {
+            if (isRunning) return;
+            commands.splice(index, 1);
+            updateCommandUI();
+        }
+
+        function clearCommands() {
+            if (isRunning) return;
+            commands = [];
+            updateCommandUI();
+        }
+
+        function updateCommandUI() {
+            // Remove all existing command items except empty message
+            const items = cmdListEl.querySelectorAll('.command-item');
+            items.forEach(item => item.remove());
+
+            if (commands.length === 0) {
+                emptyMsgEl.style.display = 'block';
+            } else {
+                emptyMsgEl.style.display = 'none';
+                commands.forEach((cmd, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'command-item bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded p-2 text-sm font-bold text-slate-700 flex justify-between items-center cursor-pointer transition-colors';
+                    div.innerHTML = `
+                        <span><span class="text-xs bg-slate-300 text-slate-600 px-1.5 py-0.5 rounded mr-2">${idx + 1}</span> ${cmdIconMap[cmd]}</span>
+                        <button onclick="removeCommand(${idx})" class="text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-100 transition-colors">✖</button>
+                    `;
+                    // Click div to remove (optional, but convenient)
+                    div.onclick = (e) => {
+                        if(e.target.tagName !== 'BUTTON') removeCommand(idx);
+                    };
+                    cmdListEl.appendChild(div);
+                });
+            }
+        }
+
+        // --- EXECUTION LOGIC ---
+        function resetLevel() {
+            if (isRunning) return;
+            playerPos = { ...startPos };
+            renderBoard();
+        }
+
+        async function runCode() {
+            if (isRunning || commands.length === 0) return;
+            
+            isRunning = true;
+            btnRun.innerHTML = '⏳ Menjalankan...';
+            btnRun.classList.add('opacity-75', 'cursor-not-allowed');
+            
+            // Kembalikan ke posisi awal sebelum jalan
+            playerPos = { ...startPos };
+            renderBoard();
+            
+            await sleep(400); // Jeda awal sebelum gerak
+
+            let success = true;
+            let currentCmdIndex = 0;
+
+            for (let i = 0; i < commands.length; i++) {
+                const cmd = commands[i];
+                let nextR = playerPos.r;
+                let nextC = playerPos.c;
+
+                if (cmd === 'A') nextR--;
+                if (cmd === 'B') nextR++;
+                if (cmd === 'R') nextC--;
+                if (cmd === 'L') nextC++;
+
+                // Validasi gerakan
+                if (isValidMove(nextR, nextC)) {
+                    // Beri jejak di posisi lama
+                    const oldCell = document.getElementById(`cell-${playerPos.r}-${playerPos.c}`);
+                    if(oldCell && currentMap[playerPos.r][playerPos.c] !== 'S') {
+                        oldCell.classList.add('path-trace');
+                    }
+                    
+                    playerPos.r = nextR;
+                    playerPos.c = nextC;
+                    
+                    // Highlight command yang sedang dieksekusi (opsional)
+                    highlightCommand(i);
+                    renderBoard();
+                    await sleep(400); // Kecepatan gerak
+                } else {
+                    // Nabrak dinding / Keluar batas
+                    success = false;
+                    highlightCommand(i, true); // error highlight
+                    
+                    // Animasi nabrak (getar)
+                    const playerIcon = document.querySelector('.player-anim');
+                    if(playerIcon) {
+                        playerIcon.style.animation = 'none';
+                        playerIcon.style.transform = 'translateX(5px)';
+                        await sleep(50);
+                        playerIcon.style.transform = 'translateX(-5px)';
+                        await sleep(50);
+                        playerIcon.style.transform = 'translateX(0)';
+                    }
+                    
+                    setTimeout(() => {
+                        showModal("💥", "Aduh, Nabrak!", "Astronot menabrak dinding atau keluar batas. Cek lagi susunan kodemu!", "Coba Lagi", () => {
+                            resetLevel();
+                        });
+                    }, 300);
+                    break;
+                }
+            }
+
+            // Jika perulangan selesai tanpa nabrak
+            if (success) {
+                if (currentMap[playerPos.r][playerPos.c] === 'G') {
+                    // Menang
+                    setTimeout(() => {
+                        showModal("🌟", "Berhasil!", "Kode programmu sempurna! Astronot berhasil mencapai bintang.", "Lanjut Level", () => {
+                            loadLevel(currentLevelIndex + 1);
+                        });
+                    }, 300);
+                } else {
+                    // Kode habis tapi belum sampai
+                    setTimeout(() => {
+                        showModal("🤔", "Belum Sampai", "Perintah sudah habis dijalankan, tapi kamu belum mencapai bintang. Tambahkan kode lagi!", "Perbaiki Kode", () => {
+                            resetLevel();
+                        });
+                    }, 300);
+                }
+            }
+
+            // Reset UI State
+            isRunning = false;
+            btnRun.innerHTML = '▶️ Jalankan Kode';
+            btnRun.classList.remove('opacity-75', 'cursor-not-allowed');
+            removeCommandHighlights();
+        }
+
+        function isValidMove(r, c) {
+            const rows = currentMap.length;
+            const cols = currentMap[0].length;
+            
+            // Cek batas luar
+            if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
+            
+            // Cek dinding
+            if (currentMap[r][c] === 1) return false;
+            
+            return true;
+        }
+
+        function highlightCommand(index, isError = false) {
+            removeCommandHighlights();
+            const items = cmdListEl.querySelectorAll('.command-item');
+            if(items[index]) {
+                if(isError) {
+                    items[index].classList.replace('bg-slate-100', 'bg-red-200');
+                    items[index].classList.replace('border-slate-300', 'border-red-400');
+                } else {
+                    items[index].classList.replace('bg-slate-100', 'bg-sky-200');
+                    items[index].classList.replace('border-slate-300', 'border-sky-400');
+                }
+            }
+        }
+
+        function removeCommandHighlights() {
+            const items = cmdListEl.querySelectorAll('.command-item');
+            items.forEach(item => {
+                item.className = 'command-item bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded p-2 text-sm font-bold text-slate-700 flex justify-between items-center cursor-pointer transition-colors';
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // --- MODAL SYSTEM (MENGGANTIKAN ALERT) ---
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalContent = document.getElementById('modalContent');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDesc = document.getElementById('modalDesc');
+        const modalBtn = document.getElementById('modalBtn');
+        let modalAction = null;
+
+        function showModal(icon, title, desc, btnText, action) {
+            modalIcon.innerText = icon;
+            modalTitle.innerText = title;
+            modalDesc.innerText = desc;
+            modalBtn.innerText = btnText;
+            modalAction = action;
+
+            // Tema modal berdasarkan tipe (Berhasil vs Gagal)
+            const decor1 = document.getElementById('modalDecor');
+            const decor2 = document.getElementById('modalDecor2');
+            
+            if(title === "Berhasil!" || title === "TAMAT!") {
+                modalBtn.className = "w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95";
+                decor1.className = "absolute -top-10 -left-10 w-24 h-24 bg-emerald-200 rounded-full blur-2xl opacity-50 z-[-1]";
+                decor2.className = "absolute -bottom-10 -right-10 w-24 h-24 bg-sky-200 rounded-full blur-2xl opacity-50 z-[-1]";
+            } else {
+                modalBtn.className = "w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95";
+                decor1.className = "absolute -top-10 -left-10 w-24 h-24 bg-red-200 rounded-full blur-2xl opacity-50 z-[-1]";
+                decor2.className = "absolute -bottom-10 -right-10 w-24 h-24 bg-amber-200 rounded-full blur-2xl opacity-50 z-[-1]";
+            }
+
+            modalOverlay.classList.remove('hidden');
+            modalOverlay.classList.add('flex');
+            
+            // Animasi masuk
+            setTimeout(() => {
+                modalOverlay.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModalAndNext() {
+            modalOverlay.classList.add('opacity-0');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modalOverlay.classList.add('hidden');
+                modalOverlay.classList.remove('flex');
+                if(modalAction) modalAction();
+            }, 200); // Sesuaikan dengan durasi transisi CSS
+        }
+
+        // START GAME
+        initGame();
+
+    </script>
+</body>
+</html>
